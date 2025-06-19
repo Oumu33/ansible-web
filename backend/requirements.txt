@@ -1,0 +1,7 @@
+django~=4.2
+djangorestframework~=3.14
+psycopg2-binary~=2.9
+celery~=5.3
+redis~=5.0
+djangorestframework-simplejwt~=5.3
+djangorestframework-simplejwt~=5.3
