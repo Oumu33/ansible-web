@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import UserProfile, HostGroup, Host, Playbook, TaskExecution
+from .models import UserProfile, HostGroup, Host, Playbook, TaskExecution, SSHKey
 from django.contrib.auth.password_validation import validate_password
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -148,3 +148,33 @@ class TaskExecutionSerializer(serializers.ModelSerializer):
             'playbook': {'queryset': Playbook.objects.all()}, # Ensure playbook ID is valid
             'target_spec': {'required': True} # Making target_spec explicitly required
         }
+
+class SSHKeySerializer(serializers.ModelSerializer):
+    associated_user_username = serializers.ReadOnlyField(source='associated_user.username')
+    private_key_present = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = SSHKey
+        fields = ['id', 'name', 'private_key', 'private_key_present', 'fingerprint', 'associated_user', 'associated_user_username', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'associated_user_username', 'created_at', 'updated_at', 'fingerprint', 'private_key_present']
+        extra_kwargs = {
+            'private_key': {'write_only': True, 'style': {'input_type': 'textarea'}, 'required': True},
+            'associated_user': {'write_only': True }, # Default is handled by perform_create in ViewSet
+            'name': {'required': True},
+        }
+
+    def get_private_key_present(self, obj):
+        # This method is a hint for the UI.
+        # FernetField stores an empty string as an encrypted value if the source is empty.
+        # So, checking if obj.private_key is not None or not empty after decryption is complex here.
+        # A simple check: if the object exists and has an ID, it means a key was submitted.
+        # For a new submission (no obj.id yet), this field won't be shown.
+        return obj.id is not None
+
+    def create(self, validated_data):
+        # CurrentUserDefault in associated_user field extra_kwargs is not working as expected here,
+        # so we ensure association in perform_create of the ViewSet.
+        # Or, it could be set here if default isn't working:
+        # if 'associated_user' not in validated_data and self.context['request'].user.is_authenticated:
+        #    validated_data['associated_user'] = self.context['request'].user
+        return super().create(validated_data)

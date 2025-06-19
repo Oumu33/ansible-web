@@ -1,3 +1,4 @@
+import os
 """
 Django settings for ansible_web_platform project.
 
@@ -178,3 +179,6 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5), # Not used if ROTATE_REFRESH_TOKENS is True
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1), # Not used if ROTATE_REFRESH_TOKENS is True
 }
+
+# django-cryptography will use settings.SECRET_KEY by default if not further configured.
+# The FERNET_KEYS setting is no longer needed.

@@ -32,8 +32,8 @@ class CurrentUserView(generics.RetrieveAPIView):
         return self.request.user
 
 from rest_framework import viewsets
-from .models import HostGroup, Host, Playbook, TaskExecution
-from .serializers import HostGroupSerializer, HostSerializer, PlaybookSerializer, TaskExecutionSerializer
+from .models import HostGroup, Host, Playbook, TaskExecution, SSHKey
+from .serializers import HostGroupSerializer, HostSerializer, PlaybookSerializer, TaskExecutionSerializer, SSHKeySerializer
 from .tasks import run_ansible_playbook_task
 # IsAuthenticated is already imported in previous app setup
 
@@ -86,3 +86,15 @@ class TaskExecutionViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(playbook_id=playbook_id)
         # Further filtering can be added here (e.g., by user, status)
         return queryset
+
+class SSHKeyViewSet(viewsets.ModelViewSet):
+    serializer_class = SSHKeySerializer
+    permission_classes = [IsAuthenticated] # Ensure only authenticated users can manage keys
+
+    def get_queryset(self):
+        # Users can only see and manage their own SSH keys
+        return SSHKey.objects.filter(associated_user=self.request.user)
+
+    def perform_create(self, serializer):
+        # Ensure the key is associated with the current authenticated user
+        serializer.save(associated_user=self.request.user)

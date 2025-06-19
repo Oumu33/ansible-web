@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import UserRegistrationView, UserLogoutView, CurrentUserView, HostGroupViewSet, HostViewSet, PlaybookViewSet, TaskExecutionViewSet
+from .views import UserRegistrationView, UserLogoutView, CurrentUserView, HostGroupViewSet, HostViewSet, PlaybookViewSet, TaskExecutionViewSet, SSHKeyViewSet
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -26,4 +26,5 @@ router.register(r'hosts', HostViewSet, basename='host')
 # The original urlpatterns are defined. We append to this list.
 router.register(r'playbooks', PlaybookViewSet, basename='playbook')
 router.register(r'taskexecutions', TaskExecutionViewSet, basename='taskexecution')
+router.register(r'sshkeys', SSHKeyViewSet, basename='sshkey')
 urlpatterns += router.urls

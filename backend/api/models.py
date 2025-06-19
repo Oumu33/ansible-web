@@ -1,3 +1,4 @@
+from django_cryptography.fields import encrypt
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
@@ -10,12 +11,10 @@ class UserProfile(models.Model):
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
-    # Add other profile fields here if needed in the future
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
 
-# Signal to create or update UserProfile whenever a User instance is saved.
 @receiver(post_save, sender=User)
 def create_or_update_user_profile(sender, instance, created, **kwargs):
     if created:
@@ -34,18 +33,38 @@ class HostGroup(models.Model):
     def __str__(self):
         return self.name
 
+# SSH Key Management Model
+class SSHKey(models.Model):
+    name = models.CharField(max_length=100)
+    private_key = encrypt(models.TextField(help_text="Encrypted private SSH key."))
+    fingerprint = models.CharField(max_length=255, blank=True, null=True, help_text="SSH key fingerprint (e.g., SHA256). Optional, can be generated client-side or via a utility.")
+
+    associated_user = models.ForeignKey(User, related_name='ssh_keys', on_delete=models.CASCADE)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} (User: {self.associated_user.username})"
+
+    class Meta:
+        unique_together = [['associated_user', 'name']]
+        ordering = ['associated_user', 'name']
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
 class Host(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    ip_address = models.GenericIPAddressField(protocol='both', unpack_ipv4=True, null=True, blank=True) # Can be IP or FQDN if we resolve later
+    ip_address = models.GenericIPAddressField(protocol='both', unpack_ipv4=True, null=True, blank=True)
     fqdn = models.CharField(max_length=255, null=True, blank=True, help_text="Fully Qualified Domain Name, if IP is not static or for reference.")
     ansible_user = models.CharField(max_length=100, default='root', help_text="Default SSH user for Ansible.")
     ansible_port = models.PositiveIntegerField(default=22, help_text="SSH port for Ansible.")
-    # For SSH key, we'll just use a placeholder text field for now.
-    # Later, this could be a ForeignKey to an SSHKey model or use a proper secrets management.
-    ssh_key_name = models.CharField(max_length=100, blank=True, null=True, help_text="Name/ID of the SSH key to use (managed separately for now).")
+    # ssh_key_name = models.CharField(max_length=100, blank=True, null=True, help_text="Name/ID of the SSH key to use (managed separately for now).") # Commented out
 
     groups = models.ManyToManyField(HostGroup, related_name='hosts', blank=True)
     created_by = models.ForeignKey(User, related_name='hosts_created', on_delete=models.SET_NULL, null=True, blank=True)
+    ssh_key = models.ForeignKey(SSHKey, on_delete=models.SET_NULL, null=True, blank=True, related_name='hosts', help_text="SSH Key to use for this host.")
     variables = models.JSONField(default=dict, blank=True, help_text="Host-specific Ansible variables (e.g., {'ansible_python_interpreter': '/usr/bin/python3'})")
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -57,17 +76,12 @@ class Host(models.Model):
     class Meta:
         verbose_name = "Host"
         verbose_name_plural = "Hosts"
-        # Potentially add a unique constraint for ip_address if it's always required and unique
-        # unique_together = [['ip_address', 'ansible_port']]
 
 # Playbook Management Model
 class Playbook(models.Model):
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True, null=True)
     content = models.TextField(help_text="YAML content of the Ansible playbook.")
-    # For file-based storage later, we might add:
-    # file_path = models.CharField(max_length=1024, blank=True, null=True)
-    # storage_type = models.CharField(max_length=10, choices=[('db', 'Database'), ('file', 'File System')], default='db')
 
     created_by = models.ForeignKey(User, related_name='playbooks_created', on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -88,7 +102,7 @@ class TaskExecution(models.Model):
         ('running', 'Running'),
         ('succeeded', 'Succeeded'),
         ('failed', 'Failed'),
-        ('canceled', 'Canceled'), # Future use
+        ('canceled', 'Canceled'),
     ]
 
     playbook = models.ForeignKey(Playbook, related_name='executions', on_delete=models.CASCADE)
