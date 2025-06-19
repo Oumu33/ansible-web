@@ -1,0 +1,5 @@
+[webservers]
+staging-web1.example.com
+
+[dbservers]
+staging-db1.example.com

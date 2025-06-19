@@ -1,0 +1,15 @@
+---
+# 主 playbook 文件
+- name: Web server configuration
+  hosts: webservers
+  become: yes
+  roles:
+    - common
+    - webserver
+
+- name: Database server configuration
+  hosts: dbservers
+  become: yes
+  roles:
+    - common
+    - dbserver
